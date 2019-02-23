@@ -5,4 +5,7 @@ voyagerviewerdemo/__pycache__
 voyagerviewerdemo/uic/__pycache__
 *.log
 *.fits
+*.fit
+*.fts
+
 
