@@ -1,0 +1,125 @@
+
+Notes on running
+----------------
+
+Using Anaconda just put the sources in a directory and go into the 'scripts'
+and run using:
+
+PYTHONPATH=.. python.exe voyagerviewerdemo_main.py
+
+The following modules will need to be installed to run:
+
+numpy
+scipy
+astropy
+configobj
+pyqtgraph
+
+You can use the file 'voyagerviewdemo_main.yaml' to create a cond env with
+the command
+
+conda env create -f voyagerviewerdemo_main.yaml -n <env name>
+
+where <env name> is the name of the env you want created.
+
+Be sure to use conda activte <env name> to enter the env before trying to
+run the demo.
+
+Pyinstaller
+-----------
+
+Several tricks are needed to get pyinstaller to work.
+There is an included spec files for pyinstaller.
+
+It is a messy process so my preferred way to run the demo is from the command
+line in a conda env but if you want an EXE this is a starting point.
+
+The workarounds required are:
+
+1) If you get an error about it not able to find qt plugins you need to
+   follow these instructions:
+
+   https://github.com/pyinstaller/pyinstaller/issues/3740
+
+   The relevant section of Lib/site-packages/PyInstaller/utils//hooks/qt.py:
+
+            json_str = exec_statement("""
+                import sys
+
+                # exec_statement only captures stdout. If there are
+                # errors, capture them to stdout so they can be displayed to the
+                # user. Do this early, in case PyQt5 imports produce stderr
+                # output.
+                sys.stderr = sys.stdout
+
+                import json
+                from %s.QtCore import QLibraryInfo, QCoreApplication
+                # QLibraryInfo isn't always valid until a QCoreApplication is
+                # instantiated.
+                app = QCoreApplication([])
+                paths = [x for x in dir(QLibraryInfo) if x.endswith('Path')]
+                location = {x: QLibraryInfo.location(getattr(QLibraryInfo, x))
+                            for x in paths}
+                try:
+                    version = QLibraryInfo.version().segments()
+                except AttributeError:
+                    version = None
+                print(str(json.dumps({
+                    'isDebugBuild': QLibraryInfo.isDebugBuild(),
+                    'version': version,
+                    'location': location,
+                })))
+            """ % self.namespace)
+
+    The essense is to instantiate QCoreApplication().
+
+2) astropy needs some help to be found so add this to the spec file:
+   (based on # from https://github.com/astropy/astropy/issues/7052)
+
+        import astropy
+        astropy_path, = astropy.__path__)
+
+    then in the Analysis() section change to read:
+
+        datas=[(astropy_path, 'astropy')],
+
+    and lower:
+
+        excludes=['astropy'],
+
+
+3) the shelve module isn't found so add it in the Analysis() section:
+
+             hiddenimports=['shelve'],
+
+4) MKL is pulled in from the conda main numpy/scipy packages and
+   makes the EXE ENORMOUS.
+
+   Some ideas on fixing:
+
+     https://github.com/conda-forge/numpy-feedstock/issues/84
+     https://stackoverflow.com/questions/43886822/pyinstaller-with-pandas-creates-over-500-mb-exe
+     https://github.com/pyinstaller/pyinstaller/issues/2270
+     https://github.com/pyinstaller/pyinstaller/issues/1694
+
+   What I did was make a conda env, remove numpy, numpy-base, mkl_fft, scipy, astropy.
+   Then start installing numpy, scipy, astropy, pyqtgraph, pyinstaller (had to
+   downgrade to pip 18.1 for this to work) from pip.
+
+5) QtNetwork causes pyinstaller to pull in libeay32.dll and ssleay32.dll
+
+   With the openssl package I'm ussing (1.1.1ish) those are present!
+
+   To fix comment out these lines in Lib/site-packages/PyInstaller/hooks/hook-PyQt5.QtNetwork:
+
+    # Add libraries needed for SSL. See issue #3520.
+    #if is_win:
+    #    rel_data_path = ['PyQt5', 'Qt', 'bin']
+    #    binaries += [
+    #        (os.path.join(pyqt5_library_info.location['BinariesPath'],
+    #                      'libeay32.dll'),
+    #         os.path.join(*rel_data_path)),
+    #        (os.path.join(pyqt5_library_info.location['BinariesPath'],
+    #                      'ssleay32.dll'),
+    #         os.path.join(*rel_data_path))
+    #    ]
