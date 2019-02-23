@@ -6,8 +6,8 @@ block_cipher = None
 import astropy
 astropy_path, = astropy.__path__
 
-a = Analysis(['voyagerviewer_main.py'],
-             pathex=['..', 'C:\\Users\\msf\\Documents\\Astronomy\\Projects\\Utilities\\voyagerviewer\\scripts'],
+a = Analysis(['voyagerviewerdemo_main.py'],
+             pathex=['..', 'C:\\Users\\msf\\Documents\\Astronomy\\Projects\\Utilities\\voyagerviewerdemo\\scripts'],
              binaries=[],
              datas=[(astropy_path, 'astropy')],
              hiddenimports=['shelve', 'csv'],
@@ -51,7 +51,7 @@ exe = EXE(pyz,
           a.zipfiles,
           a.datas,
           [],
-          name='voyagerviewer_main',
+          name='voyagerviewerdemo_main',
           debug=False,
           bootloader_ignore_signals=False,
           strip=False,
