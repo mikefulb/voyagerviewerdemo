@@ -1,0 +1,8 @@
+scripts/build
+scripts/dist
+scripts/__pycache__
+voyagerviewerdemo/__pycache__
+voyagerviewerdemo/uic/__pycache__
+*.log
+*.fits
+
