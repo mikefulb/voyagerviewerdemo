@@ -7,3 +7,5 @@ PYUIC5="/c/Users/msf/Anaconda3/Library/bin/pyuic5.bat"
 echo "imagearea_infi.ui"
 $PYUIC5 imagearea_info.ui > ../../voyagerviewerdemo/uic/imagearea_info_uic.py
 
+echo "general_settings.ui"
+$PYUIC5 general_settings.ui > ../../voyagerviewerdemo/uic/general_settings_uic.py

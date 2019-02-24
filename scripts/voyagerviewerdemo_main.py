@@ -19,7 +19,9 @@
 
 import os
 import sys
+import time
 import logging
+import argparse
 
 # needed when we run out of a directory and haven't installed as a pacakge
 # under anaconda
@@ -33,6 +35,7 @@ from voyagerviewerdemo.ImageWindowSTF import ImageWindowSTF
 from voyagerviewerdemo.ImageAreaInfo import ImageAreaInfo
 from voyagerviewerdemo.ProgramSettings import ProgramSettings
 from voyagerviewerdemo.VoyagerClient import VoyagerClient
+from voyagerviewerdemo.GeneralSettingsUI import GeneralSettingsDialog
 
 import voyagerviewerdemo.uic.icons
 
@@ -45,6 +48,9 @@ if importlib.util.find_spec('voyagerviewerdemo.build_version'):
     from ..voyagerviewer.build_version import VERSION
 else:
     VERSION='0.1'
+
+# command line arguments object
+CMDLINE_ARGS = None
 
 class MainWindow(QtGui.QMainWindow):
     class ImageDocument:
@@ -106,7 +112,13 @@ class MainWindow(QtGui.QMainWindow):
         self.voyager_client.signals.connect_close.connect(self.voyager_connection_closed)
         #self.voyager_client.signals.tcperror.connect(self.tcperror)
 
-        QtCore.QTimer.singleShot(1000, self.show_welcome_screen)
+        # if nosplash is NOT specified show it then autoconnect if requested
+        if not (CMDLINE_ARGS.nosplash or self.settings.nosplash):
+            QtCore.QTimer.singleShot(1000, self.show_welcome_screen)
+        else:
+            # if nosplash then go ahead and schedule autoconnect
+            if CMDLINE_ARGS.autoconnect or self.settings.autoconnect:
+                QtCore.QTimer.singleShot(1000, self.autoconnect_on_start)
 
     def create_menu_and_toolbars(self):
         main_toolbar = QtGui.QToolBar('File')
@@ -151,7 +163,22 @@ class MainWindow(QtGui.QMainWindow):
                                       'or implied suitablility '
                                       'for any application.\n\n',
                                       QtWidgets.QMessageBox.Ok)
+
+        # if autoconnect requested start now
+        if CMDLINE_ARGS.autoconnect or self.settings.autoconnect:
+            QtCore.QTimer.singleShot(1000, self.autoconnect_on_start)
         return
+
+    def gui_process_events(self):
+        global app
+        for i in range(0, 5):
+            app.processEvents()
+            time.sleep(0.05)
+
+    def autoconnect_on_start(self):
+        logging.info('Autoconnecting...')
+
+        self.toggle_connect(True)
 
     def toggle_connect(self, state):
         logging.info(f'toggle_connect: state = {state}')
@@ -161,11 +188,26 @@ class MainWindow(QtGui.QMainWindow):
                 return
 
             logging.info('Attempting to connect')
+
+            dlg = QtWidgets.QMessageBox()
+            dlg.setWindowTitle('Connecting')
+            dlg.setText('Attempting to connect to Voyager...')
+            dlg.setStandardButtons(QtWidgets.QMessageBox.NoButton)
+            dlg.show()
+
+            self.gui_process_events()
+
             rc = self.voyager_client.connect()
             if rc:
                 self.status.showMessage('Voyager connected!')
+                dlg.setText('Connected!')
+                self.gui_process_events()
             else:
                 self.status.showMessage('Unable to connect to Voyager!')
+                QtWidgets.QMessageBox.critical(None,
+                                              'Error Connecting',
+                                              'Unable to connect to Voyager',
+                                              QtWidgets.QMessageBox.Ok)
         else:
             if not self.voyager_client.is_connected():
                 logging.info('Already disconnected but received disconnect event - ignoring!')
@@ -192,6 +234,10 @@ class MainWindow(QtGui.QMainWindow):
         logging.info('Received Voyager disconnected signal')
         self.status.showMessage('Voyager disconnected!')
         self.set_connectdisconnect_state(self.voyager_client.is_connected())
+        QtWidgets.QMessageBox.critical(None,
+                                      'Disconnected',
+                                      'Yoyager disconnected!',
+                                      QtWidgets.QMessageBox.Ok)
 
     def voyager_connection_closed(self):
         logging.info('Received Voyager connect_closed signal')
@@ -212,9 +258,8 @@ class MainWindow(QtGui.QMainWindow):
             self.image_area_ui.update_info(self.image_documents[current_widget])
 
     def edit_settings(self):
-        return
-#        dlg = GeneralSettingsDialog()
-#        dlg.run(self.settings)
+        dlg = GeneralSettingsDialog()
+        dlg.run(self.settings)
 
     def new_fit_image(self, result):
         logging.info(f'new_fit_image: {result}')
@@ -282,7 +327,7 @@ class MainWindow(QtGui.QMainWindow):
         logging.info('file_open')
         #self.image_filename = '../tmp/test3.fits'
 
-        filename, _ = QtWidgets.QFileDialog.getOpenFileName(None, 'Open Image', '', 'FITS (*.fit *.fits, *.fts)')
+        filename, _ = QtWidgets.QFileDialog.getOpenFileName(None, 'Open Image', '', 'FITS (*.fit *.fits *.fts)')
 
         logging.info(f'file_open: {filename}')
 
@@ -405,6 +450,18 @@ def create_log_directory():
 
     return log_dir
 
+def parseCmdLine():
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--nosplash', action='store_true', help="Do not show splash dialog")
+    parser.add_argument('--autoconnect', action='store_true', help="Attempt to automatically connect to Voyager")
+
+    args = parser.parse_args()
+
+    logging.info(f'command args = {args}')
+
+    return args
+
 def main_app():
     global app
 
@@ -418,8 +475,11 @@ def main_app():
 
 
 if __name__ == '__main__':
+
+    # parse command line
+    CMDLINE_ARGS = parseCmdLine()
+
     log_dir = create_log_directory()
-    print(log_dir)
     if log_dir is not None:
         logging.basicConfig(filename=os.path.join(log_dir, 'voyagerviewerdemo.log'),
                             filemode='w',

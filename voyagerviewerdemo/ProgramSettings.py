@@ -29,6 +29,8 @@ class ProgramSettings:
         self._config = ConfigObj(unrepr=True, file_error=True, raise_errors=True)
         self._config.filename = self._get_config_filename()
 
+        self.nosplash = False
+        self.autoconnect = False
 
     # FIXME This will break HORRIBLY unless passed an attribute already
     #       in the ConfigObj dictionary
