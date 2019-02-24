@@ -476,9 +476,6 @@ def main_app():
 
 if __name__ == '__main__':
 
-    # parse command line
-    CMDLINE_ARGS = parseCmdLine()
-
     log_dir = create_log_directory()
     if log_dir is not None:
         logging.basicConfig(filename=os.path.join(log_dir, 'voyagerviewerdemo.log'),
@@ -496,6 +493,9 @@ if __name__ == '__main__':
     log.addHandler(ch)
 
     logging.info(f'voyagerviewerdemo {VERSION} starting')
+
+    # parse command line
+    CMDLINE_ARGS = parseCmdLine()
 
     main_app()
 
